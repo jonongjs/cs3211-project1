@@ -1,0 +1,10 @@
+﻿ATM() = Authenticate();
+Authenticate() = callProcessingUnit -> CallProcessUnit();
+
+CallProcessUnit() = sendFail -> resend -> CallProcessUnit() 
+                    [] sendSuccess -> GetRespond();
+GetRespond() = getRespond -> AuthenticateRespond() 
+               [] timeout ->Authenticate();
+AuthenticateRespond() = success -> WithDraw()
+                        [] fail -> ATM();
+WithDraw() = setAmount -> confirm -> moneyOut -> ATM();
