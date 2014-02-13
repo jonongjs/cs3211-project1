@@ -1,10 +1,34 @@
-﻿ATM() = Authenticate();
-Authenticate() = callProcessingUnit -> CallProcessUnit();
+﻿#define N 2; // number of ATMs
+#define GET 0;
+#define SET 1;
 
-CallProcessUnit() = sendFail -> resend -> CallProcessUnit() 
-                    [] sendSuccess -> GetRespond();
-GetRespond() = getRespond -> AuthenticateRespond() 
-               [] timeout ->Authenticate();
-AuthenticateRespond() = success -> WithDraw()
-                        [] fail -> ATM();
-WithDraw() = setAmount -> confirm -> moneyOut -> ATM();
+// The ATM machine //
+// i is the ATM number, not the account number
+ATM(i) = Authenticate(i);
+Authenticate(i) = callCPU.i -> CallCPU(i);
+CallCPU(i) = callCPUFail.i -> reCallCPU.i -> CallCPU(i) 
+             [] calCPUSuccess.i -> GetCPURespond(i);
+GetCPURespond(i) = getCPURespond.i -> AuthenticateRespond(i) 
+                   [] callCPUTimeout.i ->Authenticate(i);
+AuthenticateRespond(i) = authenticateSuccess.i -> (WithDraw(i) [] CheckBalance(i))
+                         [] authenticateFail.i -> ATM(i);
+WithDraw(i) = setAmount.i -> confirmAmount.i -> moneyOut.i -> ATM(i);
+CheckBalance(i) = returnBalance.i -> ATM(i);
+
+// The Cloud Processing Unit //
+CPU() = callCPUSuccess.0 -> ProcessAcc(0) [] callCPUSuccess.1 -> ProcessAcc(1);
+ProcessAcc(i) = callDB.i -> CallDB(i);
+CallDB(i) = callDBFail.i -> recallDB.i -> CallDB(i)
+            [] callDBSuccess.i -> getDBRespond(i);
+getDBRespond(i) = getDBRespond.i -> 
+	              []callDBTimeout.i -> ProcessAcc(i);
+
+// The Database // 
+Database() = callDBSuccess -> DBRespond();
+DBRespond() = [j == GET] getBalance.i -> returnBalance.i -> Database() []
+              [j == SET] putRecord.i -> reportBalance.i -> Database();
+
+// The whole system // 
+BankingSystem() = ATM(0) || ATM(1) || CPU() || Database();
+
+// Assertions // 
