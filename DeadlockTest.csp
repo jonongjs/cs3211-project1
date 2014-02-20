@@ -1,0 +1,89 @@
+﻿#define N 0; // number of ATMs
+
+// The ATM machine //
+// i is the ATM number, not the account number
+ATM(i) = Authenticate(i);
+
+// Authenticate process: to authorize the account
+// sendAuthenFail or sendAuthenSuccess
+// sendAuthenSuccess -> getAuthenRespond or getAuthenTimout ( timeout then Authenticate process again)
+// getAuthenRespond -> authenSuccess or authenFail (authenFail then back to ATM process)
+// authenSuccess then Withdraw or CheckBalance
+// synchronized actions: sendAuthenSuccess, getAuthenRespond, authenSuccess, authenFail, getAuthenTimeout
+Authenticate(i) = authen.i -> (sendAuthenFail.i -> Authenticate(i) 
+                                [] sendAuthenSuccess.i -> (getAuthenRespond.i -> (authenSuccess.i -> (Withdraw(i) [] CheckBalance(i))
+                                                                                  [] authenFail.i -> ATM(i)) 
+                                                           [] getAuthenTimeout.i ->Authenticate(i)));
+// Withdraw money process: sendAmount -> sendAmountSuccess OR sendAmountFail
+// sendAmountSuccess -> getWithdrawRespond OR getWithdrawTimeOut
+// getWithdrawRespond -> withdrawSuccess OR withdrawFail
+// synchronized actions: sendAmountSuccess( in CPU); getWithdrawRespond, withdrawSuccess, withdrawSuccess,withdrawFail,getWithdrawTimeOut(in SendWithdrawResult), 
+Withdraw(i) = sendAmount.i -> (sendAmountSuccess.i -> (getWithdrawRespond.i -> (withdrawSuccess.i -> moneyOut.i -> ATM(i) 
+                                                                            [] withdrawFail.i -> ATM(i))
+                                                       [] getWithdrawTimeOut.i -> Withdraw(i))
+                               []sendAmountFail -> Withdraw(i));
+
+// Similar to Withdraw process
+CheckBalance(i) = sendCheckBalance.i -> (sendCBSuccess.i -> (getCBRespond.i -> returnBalance.i -> ATM(i) 
+                                                             [] getCBTimeout.i -> CheckBalance(i))
+                                         []sendCBFail.i -> CheckBalance(i));
+
+AllATM() = || i:{0..N}@ATM(i);
+
+// The Cloud Processing Unit //
+// 3 jobs: Authenticate, Handle Withdrawing and CheckBalance
+CPU(i) = sendAuthenSuccess.i -> CPUAuthen(i)
+         [] sendAmountSuccess.i -> CPUWithdraw(i)
+         [] sendCBSuccess.i -> CPUCheckBalance(i);
+
+// CPUAuthen: sendCheckUserDB -> sendCheckUserDBSuccess OR sendCheckUserDBFail (fail -> CPUAuthen again)
+// sendCheckUserDBSuccess -> getUserDBRespond OR getUserDBTimeout (fail -> CPUAuthen)
+// getUserDBRespond -> SenAuthenResult process
+// synchronized actions: sendCheckUserDBSuccess (in Database), getUserDBRespond in DBAuthen, 
+// Deadlock if sendCheckUserDBFail
+CPUAuthen(i) = sendCheckUserDB.i -> (sendCheckUserDBSuccess.i -> (getUserDBRespond.i -> SendAuthenResult(i))
+                                     [] sendCheckUserDBFail.i -> CPUAuthen(i));
+
+// If CPUAuthen all success then we arrive at this
+SendAuthenResult(i) = sendAuthenRespond.i -> (getAuthenRespond.i -> (authenSuccess.i -> CPU(i) [] authenFail.i -> CPU(i))
+                                              [] sendAuthenRespondFail -> (SendAuthenResult(i) [] getAuthenTimeout.i -> CPU(i)));
+
+
+// CPUWithdraw and SendWithdrawResult to handle Withdraw money job
+CPUWithdraw(i) = sendChangeBalance.i -> (sendChangeBalanceSuccess.i -> (getChangeBalanceRespond.i -> SendWithdrawResult(i)
+                                                                        [] getChangeBalanceTimeout.i -> CPUWithdraw(i))
+                                         [] sendChangeBalanceFail.i -> CPUWithdraw(i));
+
+SendWithdrawResult(i) = sendWithDrawRespond.i -> (getWithdrawRespond.i -> (withdrawSuccess.i -> CPU(i) [] withdrawFail.i -> CPU(i))
+                                                  [] sendWithdrawRespondFail.i -> (SendWithdrawResult(i) [] getWithdrawTimeout.i -> CPU(i)));
+          
+          
+          
+CPUCheckBalance(i) = sendCheckBalance.i -> (sendCheckBalanceSuccess.i -> (getCheckBalanceRespond.i -> SendCheckBalanceResult(i)
+                                                                          [] getCheckBalanceTimeout.i -> CPUCheckBalance(i))
+                                            [] sendCheckBalanceFail.i -> CPUCheckBalance(i));
+
+SendCheckBalanceResult(i) = sendCheckBalanceRespond.i -> (getCBRespond.i -> CPU(i)
+                                                          [] sendCBRespondFail -> (SendCheckBalanceResult(i) [] getCBTimeout.i -> CPU(i)));
+
+AllCPU() = || i:{0..N}@CPU(i);
+
+// The Database //
+// If sendCheckUserDBResultFail -> just return to Database
+DBAuthen(i) = sendCheckUserDBResult.i -> (sendCheckUserDBResultSuccess.i -> getUserDBRespond.i -> Database()
+                                          [] sendCheckUserDBResultFail.i -> Database());
+DBWithdraw(i) = sendChangeBalanceResult.i -> (sendChangeBalanceResultSuccess.i -> getChangeBalanceRespond.i -> Database()
+                                              [] sendChangeBalanceResultFail.i -> DBWithdraw(i));
+DBCheckBalance(i) = sendCheckBalanceResult.i -> (sendCheckBalanceResultSuccess.i -> getCheckBalanceRespond.i -> Database()
+                                                 [] getCheckBalanceRespondFail.i -> DBCheckBalance(i));
+
+Database() = [] i:{0..N}@(sendCheckUserDBSuccess.i -> DBAuthen(i) 
+                          [] sendChangeBalanceSuccess.i -> DBWithdraw(i) 
+                          [] sendCheckBalanceSuccess.i -> DBCheckBalance(i));
+
+// The whole system // 
+BankingSystem() = AllATM() || AllCPU() || Database();
+
+// Assertions //
+#assert BankingSystem() deadlockfree;
+#assert BankingSystem()|= [](authenSuccess.1 -> <> moneyOut.1 );
