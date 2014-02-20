@@ -85,3 +85,4 @@ BankingSystem() = AllATM() || AllCPU() || Database();
 
 // Assertions //
 #assert BankingSystem() deadlockfree;
+#assert BankingSystem()|= [](authenSuccess.1 -> <> moneyOut.1 );
