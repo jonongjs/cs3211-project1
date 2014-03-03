@@ -2,6 +2,8 @@
 #define N 2;
 #define amount 10;
 var accBalances[N]:{0..100} = [100, 100];
+var temp;
+var totalWithdraw = 0;
 
 // The ATM machine //
 // i is the ATM number, not the account number
@@ -72,21 +74,27 @@ SendCheckBalanceResult(i) = sendCheckBalanceRespond.i -> (getCBRespond.i -> CPU(
 AllCPU() = || i:{0..(N-1)}@CPU(i);
 
 // The Database //
-DBAuthen(i) = sendCheckUserDBResult.i -> (sendCheckUserDBResultSuccess.i -> getUserDBRespond.i -> Database()
+DBAuthen(i) = sendCheckUserDBResult.i -> (sendCheckUserDBResultSuccess.i -> getUserDBRespond.i -> Database(i)
                                           [] sendCheckUserDBResultFail.i -> DBAuthen(i));
-DBWithdraw(i) = sendChangeBalanceResult.i -> (sendChangeBalanceResultSuccess.i -> getChangeBalanceRespond.i -> ([accBalances[i] >= amount] highBalance {accBalances[i] = accBalances[i] - amount} -> withdrawSuccess.i -> Database()
-																												[] [accBalances[i] < amount] lowBalance -> withdrawFail.i -> Database())
+DBWithdraw(i) = sendChangeBalanceResult.i -> (sendChangeBalanceResultSuccess.i -> getChangeBalanceRespond.i -> ([accBalances[i] >= amount] withdrawSuccess.i -> DBUpdate(i)
+																												[] [accBalances[i] < amount] withdrawFail.i -> Database(i))
                                               [] sendChangeBalanceResultFail.i -> DBWithdraw(i));
-DBCheckBalance(i) = sendCheckBalanceResult.i -> (sendCheckBalanceResultSuccess.i -> getCheckBalanceRespond.i -> Database()
+DBUpdate(i) = withdrawTotalupdate.i {totalWithdraw = totalWithdraw + amount }  ->update1.i {temp = accBalances[i]} -> update2.i {temp = temp - amount} -> update3.i {accBalances[i] = temp} -> Database(i);
+DBCheckBalance(i) = sendCheckBalanceResult.i -> (sendCheckBalanceResultSuccess.i -> getCheckBalanceRespond.i -> Database(i)
                                                  [] getCheckBalanceRespondFail.i -> DBCheckBalance(i));
 
-Database() = [] i:{0..(N-1)}@(sendCheckUserDBSuccess.i -> DBAuthen(i) 
-                          [] sendChangeBalanceSuccess.i -> DBWithdraw(i) 
-                          [] sendCheckBalanceSuccess.i -> DBCheckBalance(i));
+
+Database(i) = sendCheckUserDBSuccess.i -> DBAuthen(i) 
+              [] sendChangeBalanceSuccess.i -> DBWithdraw(i) 
+              [] sendCheckBalanceSuccess.i -> DBCheckBalance(i);
+AllDatabase() = || i:{0..(N-1)}@Database(i);
 
 // The whole system // 
-BankingSystem() = AllATM() || AllCPU() || Database();
+BankingSystem() = AllATM() || AllCPU() || AllDatabase();
 
+// Total Withdraw is the total withdraw money
+#define SameAmount (accBalances[0] + accBalances[1] + totalWithdraw == N*100);
+#assert AllDatabase() |= [](update3.0 -> X SameAmount);
 Test1() = authen.0 -> sendAuthenSuccess.0 -> getAuthenRespond.0 -> authenSuccess.0 -> sendAmount.0 -> sendAmountSuccess.0 -> getWithdrawRespond.0 -> withdrawSuccess.0 -> moneyOut.0 -> Test1();
 // Assertions //
 #assert BankingSystem() deadlockfree;
