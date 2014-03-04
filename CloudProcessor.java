@@ -15,13 +15,10 @@ public class CloudProcessor implements Runnable {
 
 		try {
 			while (!exit) {
-//				System.out.println("CloudProcessor running.");
-
 				TransactionMessage msg = messages.take();
 				switch (msg.type) {
 					case AUTHEN:
 						authenticate(msg.senderID, msg.recordID);
-						recordAtmMap.put(msg.recordID, msg.senderID);
 						break;
 					case SEND_CHECKUSERDB_RESULT_FAIL:
 						{
@@ -44,6 +41,7 @@ public class CloudProcessor implements Runnable {
 						{
 							int atmID = recordAtmMap.get(msg.recordID);
 							sim.getATM(atmID).pushMessage(new TransactionMessage(id, TransactionMessage.Type.GET_CB_RESPOND, msg.recordID, msg.value));
+							//TODO: remove from authenticated
 						}
 						break;
 
@@ -54,6 +52,7 @@ public class CloudProcessor implements Runnable {
 						{
 							int atmID = recordAtmMap.get(msg.recordID);
 							sim.getATM(atmID).pushMessage(new TransactionMessage(id, TransactionMessage.Type.WITHDRAW_SUCCESS, msg.recordID, msg.value));
+							//TODO: remove from authenticated
 						}
 						break;
 					case SEND_CHANGEBALANCE_RESULT_FAIL:
@@ -81,6 +80,7 @@ public class CloudProcessor implements Runnable {
 	public boolean authenticate(int senderID, int recordID) {
 		Database db = sim.getDatabase();
 		db.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKUSERDB, recordID));
+		recordAtmMap.put(recordID, senderID);
 		return true;
 	}
 

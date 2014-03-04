@@ -1,9 +1,25 @@
+import java.util.*;
 import java.util.concurrent.*;
 
 public class ATM implements Runnable {
+	public static class Action {
+		public enum Type { WITHDRAW, CHECKBALANCE }
+
+		Type type;
+		int recordID;
+		int amount;
+
+		Action(Type type, int recordID, int amount) {
+			this.type = type;
+			this.recordID = recordID;
+			this.amount = amount;
+		}
+	}
+
 	public ATM(int id, Simulator simulator) {
 		this.id = id;
 		sim = simulator;
+		actions = new LinkedList<Action>();
 	}
 
 	public void run() {
@@ -11,15 +27,29 @@ public class ATM implements Runnable {
 		messages = new LinkedBlockingQueue<TransactionMessage>();
 
 		try {
-			while (!exit) {
-//				System.out.println("ATM running.");
+			Iterator<Action> iter = actions.iterator();
+			while (!exit && iter.hasNext()) {
+				Action action = iter.next();
+				curRecordID = action.recordID;
+
+				cpu = sim.getCloudProcessor();
 				if (authenticate()) {
-					//TODO: withdraw or check balance
-					withdraw(10);
-					checkBalance();
+					switch (action.type) {
+						case WITHDRAW:
+							withdraw(action.amount);
+							break;
+
+						case CHECKBALANCE:
+							checkBalance();
+							break;
+					}
 				} else {
 					//TODO: go back to original state
 				}
+			}
+
+			while (!exit) {
+				// Wait for the stop or exit command
 			}
 		} catch (InterruptedException e) {
 			System.out.println("Caught InterruptedException: " + e);
@@ -31,8 +61,7 @@ public class ATM implements Runnable {
 	public boolean authenticate() throws InterruptedException {
 		System.out.println("ATM authenticating");
 
-		cpu = sim.getCloudProcessor();
-		cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.AUTHEN, id));
+		cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.AUTHEN, curRecordID));
 
 		TransactionMessage msg = messages.poll(TIMEOUT_INTERVAL, TimeUnit.MILLISECONDS);
 		if (msg == null) {
@@ -46,7 +75,7 @@ public class ATM implements Runnable {
 	}
 
 	public boolean withdraw(int amount) throws InterruptedException {
-		cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_AMOUNT, id, amount));
+		cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_AMOUNT, curRecordID, amount));
 
 		TransactionMessage msg = messages.poll(TIMEOUT_INTERVAL, TimeUnit.MILLISECONDS);
 		if (msg == null) {
@@ -65,14 +94,14 @@ public class ATM implements Runnable {
 	public boolean checkBalance() throws InterruptedException {
 		System.out.println("ATM checking balance");
 
-		cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKBALANCE, id));
+		cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKBALANCE, curRecordID));
 
 		TransactionMessage msg = messages.poll(TIMEOUT_INTERVAL, TimeUnit.MILLISECONDS);
 		if (msg == null) {
 			System.out.println("ATM checking balance - Timeout");
 			return false;
 		} else if (msg.type == TransactionMessage.Type.GET_CB_RESPOND) {
-			System.out.println("Balance: " + msg.value);
+			System.out.println("Record " + curRecordID + " Balance: " + msg.value);
 			return true;
 		}
 		return false;
@@ -81,6 +110,11 @@ public class ATM implements Runnable {
 	public void stop() {
 		exit = true;
 		messages.add(new TransactionMessage(0, TransactionMessage.Type.EXIT, 0)); //HACK: get out of infinite loop
+	}
+
+	public void setActions(List<Action> newActions) {
+		if (newActions != null)
+			actions = newActions;
 	}
 
 	synchronized public void pushMessage(TransactionMessage msg) {
@@ -92,6 +126,9 @@ public class ATM implements Runnable {
 	CloudProcessor cpu;
 	boolean exit;
 	BlockingQueue<TransactionMessage> messages;
+
+	List<Action> actions;
+	int curRecordID;
 
 	public static int TIMEOUT_INTERVAL = 1000; //TIMEOUT in milliseconds
 }

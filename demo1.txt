@@ -1,0 +1,17 @@
+numatm 3
+addrecord 100
+addrecord 200
+addrecord 300
+checkbalance 0 0
+checkbalance 1 1
+checkbalance 2 2
+withdraw 0 0 50
+withdraw 1 0 50
+withdraw 2 1 50
+withdraw 0 2 100
+withdraw 1 2 100
+withdraw 2 2 100
+checkbalance 0 0
+checkbalance 1 1
+checkbalance 2 2
+run
