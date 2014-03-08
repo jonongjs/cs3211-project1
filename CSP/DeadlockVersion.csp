@@ -1,5 +1,6 @@
-﻿#define N 0; // number of ATMs
-
+﻿#define N 2; // number of ATMs
+#define amount 10;
+var accBalances[N]:{0..100} = [100, 100];
 // The ATM machine //
 // i is the ATM number, not the account number
 ATM(i) = Authenticate(i);
@@ -28,7 +29,7 @@ CheckBalance(i) = sendCheckBalance.i -> (sendCBSuccess.i -> (getCBRespond.i -> r
                                                              [] getCBTimeout.i -> CheckBalance(i))
                                          []sendCBFail.i -> CheckBalance(i));
 
-AllATM() = || i:{0..N}@ATM(i);
+AllATM() = || i:{0..N-1}@ATM(i);
 
 // The Cloud Processing Unit //
 // 3 jobs: Authenticate, Handle Withdrawing and CheckBalance
@@ -66,18 +67,19 @@ CPUCheckBalance(i) = sendCheckBalance.i -> (sendCheckBalanceSuccess.i -> (getChe
 SendCheckBalanceResult(i) = sendCheckBalanceRespond.i -> (getCBRespond.i -> CPU(i)
                                                           [] sendCBRespondFail -> (SendCheckBalanceResult(i) [] getCBTimeout.i -> CPU(i)));
 
-AllCPU() = || i:{0..N}@CPU(i);
+AllCPU() = || i:{0..N-1}@CPU(i);
 
 // The Database //
 // If sendCheckUserDBResultFail -> just return to Database
 DBAuthen(i) = sendCheckUserDBResult.i -> (sendCheckUserDBResultSuccess.i -> getUserDBRespond.i -> Database()
                                           [] sendCheckUserDBResultFail.i -> Database());
-DBWithdraw(i) = sendChangeBalanceResult.i -> (sendChangeBalanceResultSuccess.i -> getChangeBalanceRespond.i -> Database()
+DBWithdraw(i) = sendChangeBalanceResult.i -> (sendChangeBalanceResultSuccess.i -> getChangeBalanceRespond.i -> ([accBalances[i] >= amount] highBalance {accBalances[i] = accBalances[i] - amount} -> withdrawSuccess.i -> Database()
+																												[] [accBalances[i] < amount] lowBalance -> withdrawFail.i -> Database())
                                               [] sendChangeBalanceResultFail.i -> DBWithdraw(i));
 DBCheckBalance(i) = sendCheckBalanceResult.i -> (sendCheckBalanceResultSuccess.i -> getCheckBalanceRespond.i -> Database()
                                                  [] getCheckBalanceRespondFail.i -> DBCheckBalance(i));
 
-Database() = [] i:{0..N}@(sendCheckUserDBSuccess.i -> DBAuthen(i) 
+Database() = [] i:{0..N-1}@(sendCheckUserDBSuccess.i -> DBAuthen(i) 
                           [] sendChangeBalanceSuccess.i -> DBWithdraw(i) 
                           [] sendCheckBalanceSuccess.i -> DBCheckBalance(i));
 
@@ -86,4 +88,3 @@ BankingSystem() = AllATM() || AllCPU() || Database();
 
 // Assertions //
 #assert BankingSystem() deadlockfree;
-#assert BankingSystem()|= [](authenSuccess.1 -> <> moneyOut.1 );
