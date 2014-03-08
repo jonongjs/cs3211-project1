@@ -1,6 +1,7 @@
 ﻿// number of ATMs
 #define N 2;
 #define amount 10;
+#define InitMoney 100;
 var accBalances[N]:{0..100} = [100, 100];
 
 // The ATM machine //
@@ -88,10 +89,17 @@ Database() = [] i:{0..(N-1)}@(sendCheckUserDBSuccess.i -> DBAuthen(i)
 BankingSystem() = AllATM() || AllCPU() || Database();
 
 Test1() = authen.0 -> sendAuthenSuccess.0 -> getAuthenRespond.0 -> authenSuccess.0 -> sendAmount.0 -> sendAmountSuccess.0 -> getWithdrawRespond.0 -> withdrawSuccess.0 -> moneyOut.0 -> Test1();
+
+#define lessMoney (accBalances[0] < InitMoney);
+
+
 // Assertions //
 #assert BankingSystem() deadlockfree;
 #assert BankingSystem()|= [](authenSuccess.0 -> <> moneyOut.0 );
 
+
+// Assert that after withdrawing success, the account balance need to have less money than the intital money
+#assert BankingSystem() |= [](withdrawSuccess.0 -> lessMoney);
 // Assertion to check that if user successfully send the withdraw ammount and the process is handled, then money will come out
 #assert BankingSystem()|= [](sendAmountSuccess.0 && withdrawSuccess.0 && sendChangeBalanceResultSuccess.0 -> <>moneyOut.0);
 // If authentication is failed then no money will come out
@@ -105,16 +113,15 @@ Test1() = authen.0 -> sendAuthenSuccess.0 -> getAuthenRespond.0 -> authenSuccess
 // Assert that if the ATM authenticating a bank account, then the result is either authenticate Successful or authenticate Failure 
 #assert BankingSystem()|= [](authen.0 -> <> (authenFail.0 || authenSuccess.0));
 
-// Assert for the ATM process that sendAmount is success (for withdrawing money) then the next event can only getWithdrawRespond or getWithdrawTimeOut
-#assert AllATM() |= [](sendAmountSuccess.0 ->  ((X getWithdrawRespond.0) ||  (X getWithdrawTimeOut.0) ));
+// Assert for the ATM process that sendAmount is success (for withdrawing money) then the the result event can only getWithdrawRespond or getWithdrawTimeOut
+#assert AllATM() |= [](sendAmountSuccess.0 ->  ((<> getWithdrawRespond.0) ||  (<> getWithdrawTimeOut.0) ));
 
 
 // An assertion to check the main successful test case from authentication until money come out, excluding the event in Cloud Processing and Database as user don't need to care
 #assert Test1() refines AllATM();
 
-// (Wrong case here ) Assert that authenticate action will always return authenticateFail is VALID
+// Assert that authenticate action will always return authenticateFail
 #assert BankingSystem()|= [](authen.0 -> <> (authenFail.0));
 
-// (Wrong case here )Assert that if the user choose to check balance, then the ATM won't give money ( need to work on this case, 
-// moneyOut or !moneyOut is both valid)
+// Assert that if the user choose to check balance, then the ATM won't give money
 #assert BankingSystem()|=[] !(sendCheckBalance.0 && moneyOut.0);
