@@ -3,11 +3,24 @@ import java.util.*;
 
 public class Simulator {
 	public static void main(String[] args) throws InterruptedException, IOException {
+		Boolean useStdin = true;
+
 		BufferedReader input = new BufferedReader(new InputStreamReader(System.in));
+		if (args.length > 0) {
+			useStdin = false;
+			try {
+				input = new BufferedReader(new FileReader(args[0]));
+			} catch (Exception e) {
+				System.err.println("Error opening file. " + e);
+				System.exit(-1);
+			}
+		}
+
 		Simulator sim = new Simulator();
 
 		String str;
-		System.out.print(">> ");
+		if (useStdin)
+			System.out.print(">> ");
 		while ((str=input.readLine()) != null) {
 			str = str.trim();
 			String[] tokens = str.split("\\s+");
@@ -75,8 +88,9 @@ public class Simulator {
 					System.out.println("Unrecognized command.");
 				}
 			}
-
-			System.out.print(">> ");
+ 
+			if (useStdin)
+				System.out.print(">> ");
 		}
 	}
 
