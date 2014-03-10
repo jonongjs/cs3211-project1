@@ -20,13 +20,13 @@ public class CloudProcessor implements Runnable {
 					case AUTHEN:
 						authenticate(msg.senderID, msg.recordID);
 						break;
-					case SEND_CHECKUSERDB_RESULT_FAIL:
+					case DB_CHECKUSER_FAIL:
 						{
 							int atmID = recordAtmMap.get(msg.recordID);
 							sendMessageToATM(sim.getATM(atmID), new TransactionMessage(id, TransactionMessage.Type.AUTHEN_FAIL, msg.recordID));
 						}
 						break;
-					case SEND_CHECKUSERDB_RESULT_SUCCESS:
+					case DB_CHECKUSER_SUCCESS:
 						{
 							authRecords.put(msg.recordID, true);
 							int atmID = recordAtmMap.get(msg.recordID);
@@ -37,28 +37,29 @@ public class CloudProcessor implements Runnable {
 					case CHECKBALANCE:
 						checkBalance(msg.senderID, msg.recordID);
 						break;
-					case SEND_CHECKBALANCE_RESULT_SUCCESS:
+					case DB_CHECKBALANCE_SUCCESS:
 						{
 							int atmID = recordAtmMap.get(msg.recordID);
 							sendMessageToATM(sim.getATM(atmID), new TransactionMessage(id, TransactionMessage.Type.GET_CB_RESPOND, msg.recordID, msg.value));
-							//TODO: remove from authenticated
+							authRecords.remove(msg.recordID);
 						}
 						break;
 
 					case WITHDRAW_AMOUNT:
 						withdraw(msg.senderID, msg.recordID, msg.value);
 						break;
-					case SEND_CHANGEBALANCE_RESULT_SUCCESS:
+					case DB_CHANGEBALANCE_SUCCESS:
 						{
 							int atmID = recordAtmMap.get(msg.recordID);
 							sendMessageToATM(sim.getATM(atmID), new TransactionMessage(id, TransactionMessage.Type.WITHDRAW_SUCCESS, msg.recordID, msg.value));
-							//TODO: remove from authenticated
+							authRecords.remove(msg.recordID);
 						}
 						break;
-					case SEND_CHANGEBALANCE_RESULT_FAIL:
+					case DB_CHANGEBALANCE_FAIL:
 						{
 							int atmID = recordAtmMap.get(msg.recordID);
 							sendMessageToATM(sim.getATM(atmID), new TransactionMessage(id, TransactionMessage.Type.WITHDRAW_FAIL, msg.recordID, msg.value));
+							authRecords.remove(msg.recordID);
 						}
 						break;
 
@@ -74,12 +75,12 @@ public class CloudProcessor implements Runnable {
 			System.out.println("Caught InterruptedException: " + e);
 		}
 
-		System.out.println("CloudProcessor ending.");
+//		System.out.println("CloudProcessor " + id + " ending.");
 	}
 
 	public boolean authenticate(int senderID, int recordID) {
 		Database db = sim.getDatabase();
-		db.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKUSERDB, recordID));
+		db.pushMessage(new TransactionMessage(id, TransactionMessage.Type.DB_CHECKUSER, recordID));
 		recordAtmMap.put(recordID, senderID);
 		return true;
 	}
@@ -87,7 +88,7 @@ public class CloudProcessor implements Runnable {
 	public boolean withdraw(int senderID, int recordID, int amount) {
 		if (authRecords.containsKey(recordID) && authRecords.get(recordID)) {
 			Database db = sim.getDatabase();
-			db.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHANGEBALANCE_RESULT, recordID, amount));
+			db.pushMessage(new TransactionMessage(id, TransactionMessage.Type.DB_CHANGEBALANCE, recordID, amount));
 			return true;
 		}
 		return false;
@@ -96,7 +97,7 @@ public class CloudProcessor implements Runnable {
 	public boolean checkBalance(int senderID, int recordID) {
 		if (authRecords.containsKey(recordID) && authRecords.get(recordID)) {
 			Database db = sim.getDatabase();
-			db.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKBALANCE_RESULT, recordID));
+			db.pushMessage(new TransactionMessage(id, TransactionMessage.Type.DB_CHECKBALANCE, recordID));
 			return true;
 		}
 		return false;
@@ -111,65 +112,63 @@ public class CloudProcessor implements Runnable {
 		messages.add(msg);
 	}
 
-	/*
-	private void sendMessageToDB(Database obj, TransactionMessage msg) {
-		TransactionMessage errorMsg;
+	private void sendMessageToDB(Database obj, TransactionMessage msg) throws InterruptedException {
+		TransactionMessage errorMsg = new TransactionMessage(id, TransactionMessage.Type.SEND_SUCCESS, msg.recordID, msg.value);
 		do {
 			// Simulate unreliability
 			if (rand.nextInt(10) < 1) {
 				// Sending failed, so we tell ourselves it failed
-				TransactionMessage.Type responseType = TransactionMessage.Type.SEND_AUTHEN_RESPOND_FAIL;
+//				TransactionMessage.Type responseType = TransactionMessage.Type.DB_CHECKUSER_FAIL;
 				switch (msg.type) {
-					case AUTHEN_SUCCESS:
-					case AUTHEN_FAIL:
-						responseType = TransactionMessage.Type.SEND_AUTHEN_RESPOND_FAIL;
+					case DB_CHECKUSER:
+						errorMsg.type = TransactionMessage.Type.SEND_DB_CHECKUSER_FAIL;
 						break;
-					case WITHDRAW_SUCCESS:
-					case WITHDRAW_FAIL:
-						responseType = TransactionMessage.Type.SEND_WITHDRAW_RESPOND_FAIL;
+					case DB_CHANGEBALANCE:
+						errorMsg.type = TransactionMessage.Type.SEND_DB_CHANGEBALANCE_FAIL;
 						break;
-					case GET_CB_RESPOND:
-						responseType = TransactionMessage.Type.GET_CB_RESPOND_FAIL;
+					case DB_CHECKBALANCE:
+						errorMsg.type = TransactionMessage.Type.SEND_DB_CHECKBALANCE_FAIL;
 						break;
 				}
-				pushMessage(new TransactionMessage(id, responseType, msg.recordID, msg.value));
+//				pushMessage(new TransactionMessage(id, responseType, msg.recordID, msg.value));
 			} else {
-				pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_SUCCESS, msg.recordID, msg.value));
+//				pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_SUCCESS, msg.recordID, msg.value));
+				errorMsg.type = TransactionMessage.Type.SEND_SUCCESS;
 				obj.pushMessage(msg);
 			}
 
-			errorMsg = messages.take();
+//			errorMsg = messages.take();
 		} while (errorMsg.type != TransactionMessage.Type.SEND_SUCCESS);
 	}
-	*/
 
 	private void sendMessageToATM(ATM obj, TransactionMessage msg) throws InterruptedException {
-		TransactionMessage errorMsg;
+		TransactionMessage errorMsg = new TransactionMessage(id, TransactionMessage.Type.SEND_SUCCESS, msg.recordID, msg.value);
 		do {
 			// Simulate unreliability
 			if (rand.nextInt(10) < 1) {
 				// Sending failed, so we tell ourselves it failed
-				TransactionMessage.Type responseType = TransactionMessage.Type.SEND_AUTHEN_RESPOND_FAIL;
+//				TransactionMessage.Type responseType = TransactionMessage.Type.SEND_AUTHEN_RESPOND_FAIL;
 				switch (msg.type) {
 					case AUTHEN_SUCCESS:
 					case AUTHEN_FAIL:
-						responseType = TransactionMessage.Type.SEND_AUTHEN_RESPOND_FAIL;
+						errorMsg.type = TransactionMessage.Type.SEND_AUTHEN_RESPOND_FAIL;
 						break;
 					case WITHDRAW_SUCCESS:
 					case WITHDRAW_FAIL:
-						responseType = TransactionMessage.Type.SEND_WITHDRAW_RESPOND_FAIL;
+						errorMsg.type = TransactionMessage.Type.SEND_WITHDRAW_RESPOND_FAIL;
 						break;
 					case GET_CB_RESPOND:
-						responseType = TransactionMessage.Type.GET_CB_RESPOND_FAIL;
+						errorMsg.type = TransactionMessage.Type.GET_CB_RESPOND_FAIL;
 						break;
 				}
-				pushMessage(new TransactionMessage(id, responseType, msg.recordID, msg.value));
+//				pushMessage(new TransactionMessage(id, responseType, msg.recordID, msg.value));
 			} else {
-				pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_SUCCESS, msg.recordID, msg.value));
+//				pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_SUCCESS, msg.recordID, msg.value));
+				errorMsg.type = TransactionMessage.Type.SEND_SUCCESS;
 				obj.pushMessage(msg);
 			}
 
-			errorMsg = messages.take();
+//			errorMsg = messages.take();
 		} while (errorMsg.type != TransactionMessage.Type.SEND_SUCCESS);
 	}
 
@@ -183,5 +182,5 @@ public class CloudProcessor implements Runnable {
 
 	Random rand = new Random();
 
-	public static int TIMEOUT_INTERVAL = 1000; //TIMEOUT in milliseconds
+	public static int TIMEOUT_INTERVAL = 5000; //TIMEOUT in milliseconds
 }

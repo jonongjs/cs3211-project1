@@ -16,13 +16,13 @@ public class Database implements Runnable {
 			while (!exit) {
 				TransactionMessage msg = messages.take();
 				switch (msg.type) {
-					case SEND_CHECKUSERDB:
+					case DB_CHECKUSER:
 						authenticate(msg.senderID, msg.recordID);
 						break;
-					case SEND_CHANGEBALANCE_RESULT:
+					case DB_CHANGEBALANCE:
 						withdraw(msg.senderID, msg.recordID, msg.value);
 						break;
-					case SEND_CHECKBALANCE_RESULT:
+					case DB_CHECKBALANCE:
 						checkBalance(msg.senderID, msg.recordID);
 						break;
 					case EXIT:
@@ -36,41 +36,38 @@ public class Database implements Runnable {
 			System.out.println("Caught InterruptedException: " + e);
 		}
 
-		System.out.println("Database ending.");
+//		System.out.println("Database " + id + " ending.");
 	}
 
-	public boolean authenticate(int senderID, int recordID) {
-		//TODO: simulate unreliable protocol
+	public boolean authenticate(int senderID, int recordID) throws InterruptedException {
 		CloudProcessor cpu = sim.getCloudProcessorByID(senderID);
 		if (records.containsKey(recordID)) {
 			// Send success
-			cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKUSERDB_RESULT_SUCCESS, recordID));
+			sendMessageTo(cpu, new TransactionMessage(id, TransactionMessage.Type.DB_CHECKUSER_SUCCESS, recordID));
 			return true;
 		} else {
-			cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKUSERDB_RESULT_FAIL, recordID));
+			sendMessageTo(cpu, new TransactionMessage(id, TransactionMessage.Type.DB_CHECKUSER_FAIL, recordID));
 			return false;
 		}
 	}
 
-	public boolean withdraw(int senderID, int recordID, int amount) {
-		//TODO: simulate unreliable protocol
+	public boolean withdraw(int senderID, int recordID, int amount) throws InterruptedException {
 		int balance = records.get(recordID);
 		CloudProcessor cpu = sim.getCloudProcessorByID(senderID);
 		if (amount > balance) {
-			cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKUSERDB_RESULT_FAIL, recordID));
+			sendMessageTo(cpu, new TransactionMessage(id, TransactionMessage.Type.DB_CHANGEBALANCE_FAIL, recordID));
 			return false;
 		} else {
 			records.put(recordID, balance - amount);
-			cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKUSERDB_RESULT_SUCCESS, recordID));
+			sendMessageTo(cpu, new TransactionMessage(id, TransactionMessage.Type.DB_CHANGEBALANCE_SUCCESS, recordID));
 			return true;
 		}
 	}
 
-	public boolean checkBalance(int senderID, int recordID) {
-		//TODO: simulate unreliable protocol
+	public boolean checkBalance(int senderID, int recordID) throws InterruptedException {
 		int balance = records.get(recordID);
 		CloudProcessor cpu = sim.getCloudProcessorByID(senderID);
-		cpu.pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_CHECKBALANCE_RESULT_SUCCESS, recordID, balance));
+		sendMessageTo(cpu, new TransactionMessage(id, TransactionMessage.Type.DB_CHECKBALANCE_SUCCESS, recordID, balance));
 
 		return true;
 	}
@@ -88,6 +85,42 @@ public class Database implements Runnable {
 		records.put(id, balance);
 	}
 
+	private void sendMessageTo(CloudProcessor cpu, TransactionMessage msg) throws InterruptedException {
+		TransactionMessage errorMsg = new TransactionMessage(id, TransactionMessage.Type.SEND_SUCCESS, msg.recordID, msg.value);
+		do
+		{
+			// Simulate unreliability
+			if (rand.nextInt(10) < 1) {
+				// Sending failed, so we tell ourselves it failed
+				switch (msg.type) {
+					case DB_CHECKUSER_FAIL:
+					case DB_CHECKUSER_SUCCESS:
+						errorMsg.type = TransactionMessage.Type.SEND_DB_CHECKUSER_FAIL;
+						break;
+					case DB_CHANGEBALANCE_FAIL:
+					case DB_CHANGEBALANCE_SUCCESS:
+						errorMsg.type = TransactionMessage.Type.SEND_DB_CHANGEBALANCE_FAIL;
+						break;
+					case DB_CHECKBALANCE_SUCCESS:
+						errorMsg.type = TransactionMessage.Type.SEND_DB_CHECKBALANCE_FAIL;
+						break;
+				}
+//				pushMessage(new TransactionMessage(id, responseType, msg.recordID, msg.value));
+			} else {
+//				pushMessage(new TransactionMessage(id, TransactionMessage.Type.SEND_SUCCESS, msg.recordID, msg.value));
+				errorMsg.type = TransactionMessage.Type.SEND_SUCCESS;
+				cpu.pushMessage(msg);
+			}
+//			errorMsg = messages.take();
+		} while (errorMsg.type != TransactionMessage.Type.SEND_SUCCESS);
+	}
+
+	public void printBalances() {
+		for (Integer key: records.keySet()) {
+			System.out.println("Record " + key + " balance: " + records.get(key));
+		}
+	}
+
 	int id;
 	Simulator sim;
 	boolean exit;
@@ -95,5 +128,7 @@ public class Database implements Runnable {
 
 	HashMap<Integer, Integer> records;
 
-	public static int TIMEOUT_INTERVAL = 1000; //TIMEOUT in milliseconds
+	Random rand = new Random();
+
+	public static int TIMEOUT_INTERVAL = 5000; //TIMEOUT in milliseconds
 }

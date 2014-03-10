@@ -87,6 +87,8 @@ public class Simulator {
 	}
 
 	public void startTransactions() {
+		atmsCompleted = 0;
+
 		//NOTE: assume we only have one database for now
 		// Start all ATMs, CPUs, Database
 		for (int i=0; i<numAtms; ++i) {
@@ -112,6 +114,10 @@ public class Simulator {
 			threads.add(new Thread(cpu));
 		for (Database database : databases)
 			threads.add(new Thread(database));
+
+		System.out.println("System starting. Initial balances:");
+		databases.get(0).printBalances();
+		System.out.println();
 
 		for (Thread t : threads) {
 			t.start();
@@ -175,6 +181,17 @@ public class Simulator {
 		atmActionMap.get(atmID).add(action);
 	}
 
+	synchronized public void notifyThreadCompleted(int atmID) {
+		atmsCompleted += 1;
+		if (atmsCompleted >= numAtms) {
+			System.out.println();
+			System.out.println("System stopping. Final balances:");
+			databases.get(0).printBalances();
+			stop();
+			System.exit(0);
+		}
+	}
+
 	List<ATM> atms = new ArrayList<ATM>();
 	List<CloudProcessor> cpus = new ArrayList<CloudProcessor>();
 	List<Database> databases = new ArrayList<Database>();
@@ -184,4 +201,5 @@ public class Simulator {
 	List<Integer> records;
 
 	int cpuChoice = 0;
+	int atmsCompleted;
 }

@@ -48,6 +48,7 @@ public class ATM implements Runnable {
 				}
 			}
 
+			sim.notifyThreadCompleted(id);
 			while (!exit) {
 				// Wait for the stop or exit command
 			}
@@ -55,11 +56,11 @@ public class ATM implements Runnable {
 			System.out.println("Caught InterruptedException: " + e);
 		}
 
-		System.out.println("ATM ending.");
+//		System.out.println("ATM " + id + " ending.");
 	}
 
 	public boolean authenticate() throws InterruptedException {
-		System.out.println("ATM authenticating");
+		System.out.println("ATM " + id + " authenticating for Record " + curRecordID);
 
 		TransactionMessage msg;
 		do
@@ -68,10 +69,10 @@ public class ATM implements Runnable {
 
 			msg = messages.poll(TIMEOUT_INTERVAL, TimeUnit.MILLISECONDS);
 			if (msg == null) {
-				System.out.println("ATM authenticate timeout");
+				System.out.println("ATM " + id + " authenticate timeout");
 				return false;
 			} else if (msg.type == TransactionMessage.Type.AUTHEN_FAIL) {
-				System.out.println("ATM authenticate failed");
+				System.out.println("ATM " + id + " authenticate failed");
 				return false;
 			} else if (msg.type == TransactionMessage.Type.AUTHEN_SUCCESS) {
 				return true;
@@ -81,6 +82,7 @@ public class ATM implements Runnable {
 	}
 
 	public boolean withdraw(int amount) throws InterruptedException {
+		System.out.println("ATM " + id + " attempting to withdraw " + amount + "cents from Record " + curRecordID);
 		TransactionMessage msg;
 		do
 		{
@@ -88,13 +90,13 @@ public class ATM implements Runnable {
 
 			msg = messages.poll(TIMEOUT_INTERVAL, TimeUnit.MILLISECONDS);
 			if (msg == null) {
-				System.out.println("ATM withdraw - Timeout");
+				System.out.println("ATM " + id + " withdraw - Timeout");
 				return false;
 			} else if (msg.type == TransactionMessage.Type.WITHDRAW_FAIL) {
-				System.out.println("ATM withdraw - Failed");
+				System.out.println("ATM " + id + " withdraw - Failed");
 				return false;
 			} else if (msg.type == TransactionMessage.Type.WITHDRAW_SUCCESS) {
-				System.out.println("ATM withdraw - Success");
+				System.out.println("ATM " + id + " withdraw - Success");
 				return true;
 			}
 		} while (msg.type == TransactionMessage.Type.SEND_AMOUNT_FAIL);
@@ -102,7 +104,7 @@ public class ATM implements Runnable {
 	}
 
 	public boolean checkBalance() throws InterruptedException {
-		System.out.println("ATM checking balance");
+		System.out.println("ATM " + id + " checking balance for Record " + curRecordID);
 
 		TransactionMessage msg;
 		do
@@ -111,10 +113,10 @@ public class ATM implements Runnable {
 
 			msg = messages.poll(TIMEOUT_INTERVAL, TimeUnit.MILLISECONDS);
 			if (msg == null) {
-				System.out.println("ATM checking balance - Timeout");
+				System.out.println("ATM " + id + " checking balance - Timeout");
 				return false;
 			} else if (msg.type == TransactionMessage.Type.GET_CB_RESPOND) {
-				System.out.println("Record " + curRecordID + " Balance: " + msg.value);
+				System.out.println("ATM " + id + ": Record " + curRecordID + " Balance: " + msg.value);
 				return true;
 			}
 		} while (msg.type == TransactionMessage.Type.SEND_CHECKBALANCE_FAIL);
@@ -168,5 +170,5 @@ public class ATM implements Runnable {
 
 	Random rand = new Random();
 
-	public static int TIMEOUT_INTERVAL = 1000; //TIMEOUT in milliseconds
+	public static int TIMEOUT_INTERVAL = 5000; //TIMEOUT in milliseconds
 }
