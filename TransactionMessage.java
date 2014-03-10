@@ -41,6 +41,7 @@ public class TransactionMessage {
 
 		// Misc messages
 		SEND_SUCCESS, // Hack to signal sending passed
+		DB_UPDATE_AMOUNT, // Used by the incorrect Database
 		EXIT
 	}
 

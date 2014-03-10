@@ -130,5 +130,5 @@ public class Database implements Runnable {
 
 	Random rand = new Random();
 
-	public static int TIMEOUT_INTERVAL = 5000; //TIMEOUT in milliseconds
+	public static int TIMEOUT_INTERVAL = 1250; //TIMEOUT in milliseconds
 }

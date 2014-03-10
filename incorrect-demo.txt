@@ -1,4 +1,4 @@
-type proper
+type incorrect
 numatm 3
 addrecord 300
 addrecord 100

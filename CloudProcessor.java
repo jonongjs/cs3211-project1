@@ -182,5 +182,5 @@ public class CloudProcessor implements Runnable {
 
 	Random rand = new Random();
 
-	public static int TIMEOUT_INTERVAL = 5000; //TIMEOUT in milliseconds
+	public static int TIMEOUT_INTERVAL = 2500; //TIMEOUT in milliseconds
 }

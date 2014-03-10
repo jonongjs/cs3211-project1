@@ -116,6 +116,8 @@ public class Simulator {
 		}
 		if (simType.equals("deadlock")) {
 			databases.add(new DatabaseDeadlock(0, this));
+		} else if (simType.equals("incorrect")) {
+			databases.add(new DatabaseIncorrect(0, this));
 		} else {
 			databases.add(new Database(0, this));
 		}
