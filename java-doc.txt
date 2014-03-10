@@ -1,0 +1,42 @@
+Java Simulator Documentation
+=============================================
+
+Overview
+--------------------
+The Java Simulator is an implementation of the models developed in CSP/PAT, using a message-passing paradigm reflecting the events specified in the models. All communication between the processes occur through the passing of messages between them with the use of Java's BlockingQueue structures. Unreliable network conditions are simulated by using a random number generator to determine if a message is sent successfully. Timeouts are detected by using the BlockingQueue's `take` method, which takes in an argument specifying a timeout period. The messages used can be found in the TransactionMessage class. They are almost in a one-to-one mapping with the events in the CSP models, with some name changes.
+
+The simulator takes in a series of instructions and sets up a system comprising a given number of ATM, CloudProcessor and Database threads. In this implementation, only one Database thread is used. The ATMs then perform their scheduled actions (checking of balance and withdrawing of money). Each ATM action is preceded by an authentication call. Each element of this system corresponds to the major processes found in the CSP models. The sub-processes found in the CSP models are implemented as methods in each of the classes above.
+
+
+Running the simulator
+--------------------
+The simulator is a single Java program which takes in a file containing a series of instructions to perform. If no filename is given, the instructions will be taken from standard input. The simulator can be invoked via:
+	java Simulator <instruction_file>
+
+The simulator is capable of running in three different modes:
+- proper, which is the correct version;
+- deadlock, which may become deadlocked; and
+- incorrect, which may perform incorrect calculations.
+
+The commands that the simulator accepts specify the initial conditions of the system, and also a set of actions each ATM will perform once the simulator is started. The following commands are available:
+	addrecord <balance>						Adds a record and set its current balance to `balance` cents.
+	checkbalance <atmID> <recordID>			Add a checkbalance action to the ATM `atmID` on the record `recordID`.
+	withdraw <atmID> <recordID> <amount>	Add a withdraw action to the ATM `atmID` on record `recordID` and withdraw `amount` cents.
+	numatm <num_of_atm>						Create `num_of_atm` ATMs and CloudProcessors.
+	type [proper|deadlock|incorrect]		Choose the type of simulator to run: proper; with deadlock; or with incorrect calculations.
+	run										Run the system.
+	stop									Stop the system.
+	exit									Quit the simulator.
+	help									Display this message.
+
+A typical run of the simulator can be found in one of the demo files provided. At the start of a simulation run (using the `run` command), the simulator will display the initial balances. Upon termination, the simulator will display the final record balances.
+
+
+Demo files
+--------------------
+A set of demo files are packaged together with the simulator:
+- proper-demo1.txt: contains a proper run of the system, including an authentication that will fail due to accessing a non-existent record. A correct run without timeouts will result in all records having 0 balance.
+- proper-demo2.txt: contains a proper run of the system, with many ATMs performing withdrawals on the same record. A correct run without timeouts will result in Record 0 having 0 balance.
+- deadlock-demo.txt: is just like proper-demo1.txt, but in deadlock mode. The run will encounter a deadlock due to an ATM trying to access a non-existent record.
+- incorrect-demo.txt: is just like proper-demo2.txt, but in incorrect mode. The run may produce an incorrect balance in Record 0 depending on the way the threads interleave.
+
