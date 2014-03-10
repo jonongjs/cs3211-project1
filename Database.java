@@ -85,7 +85,7 @@ public class Database implements Runnable {
 		records.put(id, balance);
 	}
 
-	private void sendMessageTo(CloudProcessor cpu, TransactionMessage msg) throws InterruptedException {
+	public void sendMessageTo(CloudProcessor cpu, TransactionMessage msg) throws InterruptedException {
 		TransactionMessage errorMsg = new TransactionMessage(id, TransactionMessage.Type.SEND_SUCCESS, msg.recordID, msg.value);
 		do
 		{

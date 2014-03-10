@@ -1,0 +1,30 @@
+type proper
+numatm 3
+addrecord 100
+addrecord 100
+addrecord 100
+checkbalance 0 0
+checkbalance 1 1
+checkbalance 2 2
+withdraw 0 0 20
+withdraw 1 1 20
+withdraw 2 2 20
+withdraw 0 2 20
+withdraw 1 1 20
+withdraw 2 0 20
+checkbalance 0 2
+checkbalance 1 0
+checkbalance 2 1
+withdraw 0 2 20
+withdraw 1 1 20
+withdraw 2 0 20
+checkbalance 0 1
+checkbalance 1 2
+checkbalance 2 0
+withdraw 0 0 20
+withdraw 1 2 20
+withdraw 2 1 20
+withdraw 0 1 20
+withdraw 1 2 20
+withdraw 2 0 20
+run

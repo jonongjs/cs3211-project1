@@ -53,6 +53,18 @@ public class Simulator {
 						System.err.println("Bad input. Expected integer");
 						printHelp();
 					}
+				} else if (cmd.equals("type")) {
+					try {
+						String simType = tokens[1];
+						if (simType.equals("proper") || simType.equals("deadlock") || simType.equals("incorrect")) {
+							sim.setSimType(simType);
+						} else {
+							throw new Exception("Bad input");
+						}
+					} catch (Exception e) {
+						System.err.println("Bad input. Expected argument 'proper', 'deadlock', or 'incorrect'");
+						printHelp();
+					}
 				} else if (cmd.equals("run")) {
 					sim.startTransactions();
 				} else if (cmd.equals("stop")) {
@@ -75,6 +87,7 @@ public class Simulator {
 			+ "checkbalance <atmID> <recordID>\t\tAdd a checkbalance action to the ATM `atmID` on the record `recordID`.\n"
 			+ "withdraw <atmID> <recordID> <amount>\tAdd a withdraw action to the ATM `atmID` on record `recordID` and withdraw `amount` cents.\n"
 			+ "numatm <num_of_atm>\t\t\tCreate `num_of_atm` ATMs and CloudProcessors.\n"
+			+ "type [proper|deadlock|incorrect]\tChoose the type of simulator to run: proper; with deadlock; or with incorrect calculations.\n"
 			+ "run\t\t\t\t\tRun the system.\n"
 			+ "stop\t\t\t\t\tStop the system.\n"
 			+ "exit\t\t\t\t\tQuit the simulator.\n"
@@ -87,15 +100,25 @@ public class Simulator {
 	}
 
 	public void startTransactions() {
+		System.out.println("Simulation type: " + simType);
 		atmsCompleted = 0;
 
 		//NOTE: assume we only have one database for now
 		// Start all ATMs, CPUs, Database
 		for (int i=0; i<numAtms; ++i) {
-			atms.add(new ATM(i, this));
+			if (simType.equals("deadlock")) {
+				atms.add(new ATMDeadlock(i, this));
+			} else {
+				atms.add(new ATM(i, this));
+			}
+
 			cpus.add(new CloudProcessor(i, this));
 		}
-		databases.add(new Database(0, this));
+		if (simType.equals("deadlock")) {
+			databases.add(new DatabaseDeadlock(0, this));
+		} else {
+			databases.add(new Database(0, this));
+		}
 
 		for (int i=0; i<records.size(); ++i) {
 			databases.get(0).addRecord(i, records.get(i));
@@ -158,6 +181,7 @@ public class Simulator {
 
 	public void reset() {
 		numAtms = 1;
+		simType = "proper";
 		atmActionMap = new HashMap<Integer, List<ATM.Action>>();
 		records = new LinkedList<Integer>();
 
@@ -168,6 +192,10 @@ public class Simulator {
 
 	public void setNumAtms(int numAtms) {
 		this.numAtms = numAtms;
+	}
+
+	public void setSimType(String simType) {
+		this.simType = simType;
 	}
 
 	public void addRecord(int balance) {
@@ -197,6 +225,7 @@ public class Simulator {
 	List<Database> databases = new ArrayList<Database>();
 
 	int numAtms;
+	String simType;
 	HashMap<Integer, List<ATM.Action>> atmActionMap;
 	List<Integer> records;
 

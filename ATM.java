@@ -137,7 +137,7 @@ public class ATM implements Runnable {
 		messages.add(msg);
 	}
 
-	private void sendMessageTo(CloudProcessor cpu, TransactionMessage msg) {
+	public void sendMessageTo(CloudProcessor cpu, TransactionMessage msg) {
 		// Simulate unreliability
 		if (rand.nextInt(10) < 1) {
 			// Sending failed, so we tell ourselves it failed
