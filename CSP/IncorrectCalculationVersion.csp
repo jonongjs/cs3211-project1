@@ -92,24 +92,9 @@ AllDatabase() = || i:{0..(N-1)}@Database(i);
 // The whole system // 
 BankingSystem() = AllATM() || AllCPU() || AllDatabase();
 
+
+// Assertions
 // Total Withdraw is the total withdraw money
 #define SameAmount (accBalances[0] + accBalances[1] + totalWithdraw == N*100);
 #assert AllDatabase() |= [](update3.0 -> X SameAmount);
-Test1() = authen.0 -> sendAuthenSuccess.0 -> getAuthenRespond.0 -> authenSuccess.0 -> sendAmount.0 -> sendAmountSuccess.0 -> getWithdrawRespond.0 -> withdrawSuccess.0 -> moneyOut.0 -> Test1();
-// Assertions //
-#assert BankingSystem() deadlockfree;
-#assert BankingSystem()|= [](authenSuccess.0 -> <> moneyOut.0 );
-
-// Assertion to check that if user successfully send the withdraw ammount and the process is handled, then money will come out
-#assert BankingSystem()|= [](sendAmountSuccess.0 && withdrawSuccess.0 -> <>moneyOut.0);
-// If authentication is failed then no money will come out
-#assert BankingSystem()|= [](sendAuthenFail.0 || authenFail.0 || getAuthenTimeout.0-> !moneyOut.0);
-// Assert that if the user doesn't choose to perform check balance, then the ATM won't return balance
-#assert BankingSystem()|= [](!sendCheckBalance.0 -> <> returnBalance.0);
-
-// An assertion to check the main successful test case from authentication until money come out, excluding the event in Cloud Processing and Database as user don't need to care
-#assert Test1() refines AllATM();
-
-// (Wrong case here )Assert that if the user choose to check balance, then the ATM won't give money ( need to work on this case, 
-// moneyOut or !moneyOut is both valid)
-#assert BankingSystem()|= [](sendCheckBalance.0  -> moneyOut.0);
+#assert AllDatabase() |= [](update3.1 -> X SameAmount);
