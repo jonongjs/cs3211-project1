@@ -12,6 +12,8 @@ withdraw 2 1 50
 withdraw 0 2 100
 withdraw 1 2 100
 withdraw 2 2 100
+withdraw 0 0 50
+withdraw 2 1 150
 checkbalance 0 0
 checkbalance 1 1
 checkbalance 2 2
